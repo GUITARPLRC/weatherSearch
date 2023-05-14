@@ -1,0 +1,42 @@
+.container {
+	min-width: 800px;
+}
+
+.location-search-input {
+	width: 300px;
+	padding: 8px 12px;
+	font-size: 16px;
+	border: 1px solid #ccc;
+	border-radius: 4px;
+	margin-bottom: 12px;
+}
+
+.autocomplete-dropdown-container {
+	background: black;
+	position: relative;
+	width: 300px;
+}
+
+.suggestion-item {
+	padding: 8px 12px;
+	cursor: pointer;
+}
+
+.suggestion-item--active {
+	background-color: #fafafa;
+	cursor: pointer;
+	padding: 8px 12px;
+}
+
+.weather-data {
+	margin-top: 20px;
+}
+
+.weather-data h2 {
+	font-size: 24px;
+}
+
+.weather-data p {
+	font-size: 16px;
+	margin-bottom: 8px;
+}
