@@ -1,62 +1,64 @@
 import { useState } from 'react';
 import axios from 'axios';
 import PlacesAutocomplete, { geocodeByAddress, getLatLng } from 'react-places-autocomplete';
+import Clock from './components/Clock';
+import SlideShow from './components/SlideShow';
+import Ticker from './components/Ticker';
 import './App.css'
 
 function WeatherApp() {
   const [location, setLocation] = useState('');
   const [isLoading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [weatherData, setWeatherData] = useState<WeatherData | null>(null);
   const API_KEY = import.meta.env.VITE_WEATHER_API_KEY;
 
   const handleClear = () => {
     setLocation('');
     setWeatherData(null);
+    setError(null);
   }
 
   const handleChange = (address: string) => {
     setLocation(address);
   };
 
-  const handleSelect = (address: string) => {
-    setLoading(true)
-    geocodeByAddress(address)
-      .then(results => getLatLng(results[0]))
-      .then(latLng => {
-        const coords = `${latLng.lat},${latLng.lng}`
-        axios.get<WeatherData>(`http://api.weatherapi.com/v1/forecast.json?key=${API_KEY}&q=${coords}&days=1&aqi=no&alerts=no`)
-          .then(response => {
-            setWeatherData(response.data);
-          })
-          .catch(error => {
-            console.error('Weather Error', error);
-          });
-      })
-      .catch(error => {
-        console.error('Location Error', error);
-      })
-      .then(() => {
-        setTimeout(() => {
-          setLocation('')
-          setLoading(false)
-        }, 500)
-      })
+  const handleSelect = async (address: string) => {
+    setLoading(true);
+    setError(null);
+    try {
+      const results = await geocodeByAddress(address);
+      const latLng = await getLatLng(results[0]);
+      const coords = `${latLng.lat},${latLng.lng}`;
+      const response = await axios.get<WeatherData>(
+        `https://api.weatherapi.com/v1/forecast.json?key=${API_KEY}&q=${encodeURIComponent(coords)}&days=3&aqi=no&alerts=no`,
+      );
+      setWeatherData(response.data);
+    } catch (err) {
+      console.error('Weather lookup failed', err);
+      setWeatherData(null);
+      setError('We are unable to retrieve weather for that location. Please try again.');
+    } finally {
+      setLocation('');
+      setLoading(false);
+    }
   };
 
-  console.log({weatherData})
-
   return (
-    <div>
-      <div className='container'>
+    <div className="broadcast">
+      <header className="broadcast__header">
+        <h1 className="broadcast__title">Local Weather Report</h1>
+        <Clock />
+      </header>
 
-      <h2>Weather Search</h2>
+      <div className="container search">
         <PlacesAutocomplete
           value={location}
           onChange={handleChange}
           onSelect={handleSelect}
         >
           {({ getInputProps, suggestions, getSuggestionItemProps, loading }) => (
-            <div>
+            <div className="search__box">
               <input
                 {...getInputProps({
                   placeholder: 'Enter location',
@@ -64,19 +66,11 @@ function WeatherApp() {
                 })}
               />
               <div className="autocomplete-dropdown-container">
-                {loading && <div className="loading">Loading...</div>}
+                {loading && <div className="loading">Searching...</div>}
                 {suggestions.map(suggestion => {
-                  const className = suggestion.active ? 'suggestion-item--active' : 'suggestion-item';
-                  const style = suggestion.active
-                    ? { backgroundColor: '#999', cursor: 'pointer' }
-                    : { backgroundColor: '#777', cursor: 'pointer' };
+                  const className = suggestion.active ? 'suggestion-item suggestion-item--active' : 'suggestion-item';
                   return (
-                    <div
-                      {...getSuggestionItemProps(suggestion, {
-                        className,
-                        style,
-                      })}
-                    >
+                    <div {...getSuggestionItemProps(suggestion, { className })}>
                       <span className="suggestion-description">{suggestion.description}</span>
                     </div>
                   );
@@ -85,18 +79,32 @@ function WeatherApp() {
             </div>
           )}
         </PlacesAutocomplete>
-        <button onClick={handleClear}>Clear</button>
+        <button type="button" onClick={handleClear}>Clear</button>
       </div>
-      {isLoading && ( <p>Loading</p>)}
-      {!isLoading && weatherData && (
-        <div className="weather-data">
-          <h2 className="weather-data__title">Current Weather in {weatherData.location.name}, {weatherData.location.region}</h2>
-          <p className="weather-data__temperature">Temperature: {weatherData.current.temp_f}°F</p>
-          <p className="weather-data__humidity">Humidity: {weatherData.current.humidity}%</p>
-          <p className="weather-data__wind-speed">Wind Speed: {weatherData.current.wind_mph}mph</p>
-          <p className="weather-data__description">Description: {weatherData.current.condition.text}</p>
-        </div>
-      )}
+
+      <main className="container">
+        {isLoading && (
+          <div className="panel panel--status">
+            <p className="blink">Receiving Local Data...</p>
+          </div>
+        )}
+        {!isLoading && error && (
+          <div className="panel panel--error" role="alert">
+            <h2 className="slide__title">Technical Difficulties</h2>
+            <p>{error}</p>
+          </div>
+        )}
+        {!isLoading && !error && weatherData && (
+          <SlideShow key={weatherData.location.localtime + weatherData.location.name} data={weatherData} />
+        )}
+        {!isLoading && !error && !weatherData && (
+          <div className="panel panel--status">
+            <p>Enter a city to see your local forecast.</p>
+          </div>
+        )}
+      </main>
+
+      <Ticker data={weatherData} />
     </div>
   );
 }
